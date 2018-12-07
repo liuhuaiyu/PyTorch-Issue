@@ -1037,9 +1037,8 @@ const vector<double>& PedNeuralSolverPrior::ComputePreference(){
     ProcessNeuralInput(FULL);
 
     // TODO: Send nn_input_images_ to drive_net, and get the acc distribution (a guassian mixture (pi, sigma, mu))
-    std::vector<torch::jit::IValue> test_input;
-    test_input.push_bach(torch::ones({1, 9, 32, 32}));
-    auto drive_net_output = drive_net->forward(test_input);
+    
+    auto drive_net_output = drive_net->forward(nn_input_images_);
     // auto network_output_tuple = network_output.toTuple();
     auto drive_net_output_tuple = drive_net_output.toTuple();	
     auto drive_net_output_elements = drive_net_output_tuple->elements();
@@ -1058,11 +1057,11 @@ const vector<double>& PedNeuralSolverPrior::ComputePreference(){
 		acc_mu_batch[batch] = acc_mu;
 	}
 	auto acc_sigma_batch = at::ones({batch_size, G, O}, at::kDouble);
-	for (int batch = 0: batch < batch_size; batch ++) {
+	for (int batch = 0; batch < batch_size; batch ++) {
 		acc_sigma_batch[batch] = acc_sigma;
 	}
 	auto acc_pi_batch = at::ones({batch_size, G}, at::kDouble);
-	for (int batch = 0: batch < batch_size; batch ++) {
+	for (int batch = 0; batch < batch_size; batch ++) {
 		acc_pi_batch[batch] = acc_pi;
 	}
 
@@ -1099,18 +1098,16 @@ double PedNeuralSolverPrior::ComputeValue(){
 	// TODO: Construct input images
 	// 		 Here we can reuse existing channels
 	ProcessNeuralInput(PARTIAL);
-        std::vector<torch::jit::IValue> test_input;
-        test_input.push_bach(torch::ones({1, 9, 32, 32}));
+        
 	// TODO: Send nn_input_images_ to drive_net, and get the value output
-	auto drive_net_output = drive_net->forward(test_input);
+	auto drive_net_output = drive_net->forward(nn_input_images);
 	// auto value_double = drive_net_output_tuple[0].toTensor().accessor<double, 2>();
         auto drive_net_output_tuple = drive_net_output.toTuple();
         auto drive_net_output_elements = drive_net_output_tuple->elements();
-        auto drive_net_output_Tensor = drive_net_output_elements.toTensor();
+        auto drive_net_output_Tensor = drive_net_output_elements[0].toTensor();
         auto value_double = drive_net_output_Tensor.accessor<double, 2>();
 	double value = value_double[0][0];
 	// TODO: return the output as double
 	return value;
 }
-
 
