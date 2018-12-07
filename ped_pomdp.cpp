@@ -1019,6 +1019,14 @@ at::Tensor gaussian_probability(at::Tensor &sigma, at::Tensor &mu, at::Tensor &d
     return at::prod(ret, 2);
 }
 
+at::Tensor mdn_accuracy(at::Tensor &pi, at::Tensor &sigma, 
+    at::Tensor &mu, at::Tensor &target) {
+    auto prob_double = pi * gaussian_probability(sigma, mu, target);
+    auto prob_float = prob_double.toType(at::kFloat);
+    auto safe_sum = at::add(at::sum(prob_float, at::IntList(1)), at::Scalar(0.000001));
+    return at::mean(safe_sum);
+}
+
 const vector<double>& PedNeuralSolverPrior::ComputePreference(){
 
     // TODO: remove this when you finish the coding
@@ -1038,9 +1046,27 @@ const vector<double>& PedNeuralSolverPrior::ComputePreference(){
     auto acc_pi = drive_net_output_elements[1].toTensor();
     auto acc_mu = drive_net_output_elements[2].toTensor();
     auto acc_sigma = drive_net_output_elements[3].toTensor();
+    int G = acc_mu.size(0);
+	int O = acc_mu.size(1);
 
 
     const PedPomdp* ped_model = static_cast<const PedPomdp*>(model_);
+    int batch_size = ped_model->NumActions();
+
+    auto acc_mu_batch = at::ones({batch_size, G, O}, at::kDouble);
+    for (int batch = 0; batch < batch_size; batch ++ ) {
+		acc_mu_batch[batch] = acc_mu;
+	}
+	auto acc_sigma_batch = at::ones({batch_size, G, O}, at::kDouble);
+	for (int batch = 0: batch < batch_size; batch ++) {
+		acc_sigma_batch[batch] = acc_sigma;
+	}
+	auto acc_pi_batch = at::ones({batch_size, G}, at::kDouble);
+	for (int batch = 0: batch < batch_size; batch ++) {
+		acc_pi_batch[batch] = acc_pi;
+	}
+
+
     at::Tensor acc_candiates = at::ones({ped_model->NumActions(), 1}, at::kDouble);
     for (int action = 0;  action < ped_model->NumActions(); action ++){
 	acc_candiates[action][0] = ped_model->GetAcceleration(action);
@@ -1050,11 +1076,12 @@ const vector<double>& PedNeuralSolverPrior::ComputePreference(){
     }
 
     vector<double> action_probs_;
-    auto action_probs_Tensor = gaussian_probability(acc_sigma, acc_mu, acc_candiates);
+    auto action_probs_Tensor = mdn_accuracy(acc_pi_batch, acc_mu_batch, acc_sigma_batch, acc_candiates);
+    // auto action_probs_Tensor = gaussian_probability(acc_sigma, acc_mu, acc_candiates);
     // auto action_probs_double = gaussian_probability(acc_sigma, acc_mu, acc_candiates).accessor<double, 2>();
     auto action_probs_double = action_probs_Tensor.accessor<double, 2>();
     
-    for (int action = 0; action < ped_model->NumActions(); action ++) {
+    for (int action = 0; action < batch_size; action ++) {
     	action_probs_.push_back(action_probs_double[action][0])
     }
 	// return the output as vector<double>
