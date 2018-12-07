@@ -8,3 +8,11 @@ at::Tensor gaussian_probability(at::Tensor &sigma, at::Tensor &mu,
     auto ret = ONEOVERSQRT2PI * (exponent.exp() / sigma);
     return at::prod(ret, 2);
 }
+
+at::Tensor mdn_accuracy(at::Tensor &pi, at::Tensor &sigma, 
+    at::Tensor &mu, at::Tensor &target) {
+    auto prob_double = pi * gaussian_probability(sigma, mu, target);
+    auto prob_float = prob_double.toType(at::kFloat);
+    auto safe_sum = at::add(at::sum(prob_float, at::IntList(1)), at::Scalar(0.000001));
+    return at::mean(safe_sum);
+}
